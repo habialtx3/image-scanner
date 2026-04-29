@@ -3,7 +3,7 @@ import multer from "multer";
 import { processImage } from "./gemini.js";
 
 const router = express.Router();
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ storage : multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
 
 router.post("/translate", upload.single("image"), async (req, res) => {
   try {

@@ -1,16 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
-import fs from "fs";
-import dotenv from "dotenv";
+import dotenv, { parse } from "dotenv";
 dotenv.config();
-
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
 export const processImage = async (file) => {
-  const imageBuffer = fs.readFileSync(file.path);
-  const base64Image = imageBuffer.toString("base64");
+  if (!file || !file.mimetype.startsWith("image/")) {
+    throw new Error("Invalid file type");
+  }
+
+  const base64Image = file.buffer.toString("base64");
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
@@ -23,12 +24,40 @@ export const processImage = async (file) => {
       },
       {
         text: `
-        Extract all text from this image and translate it into Indonesian.
-        Only return the translated text.
-        `,
+Extract all text from this image and translate it into Indonesian.
+
+Return the result in JSON format like this:
+{
+  "items": [
+    {
+      "original": "text 1",
+      "translated": "translation 1"
+    },
+    {
+      "original": "text 2",
+      "translated": "translation 2"
+    }
+  ]
+}
+
+Rules:
+- Split text into logical parts (sentences or lines)
+- Keep order
+- Only return valid JSON
+- No explanation
+`,
       },
     ],
   });
 
-  return response.text;
+  const cleanText = response.text.replace(/```json/g,"").replace(/```/g, "").trim()
+  let parsed
+
+  try {
+    parsed = JSON.parse(cleanText)
+  } catch (error) {
+    console.error("JSON parsed error",error);
+    parsed = {item : [], raw : cleanText};
+  }
+  return parsed;
 };
